@@ -19,13 +19,12 @@ const int DHT_PIN = 15;
 const int LCD_COLUMNS = 16;
 const int LCD_ROWS = 2;
 const int oneWirePin = 4;
-const int ANALOG_PIN = 36;
+const int ADC_PIN_1 = 36;
+const int ADC_PIN_2 = 35;
 const int LAMP_PIN = 5;
 const int PUMP_PIN = 16;
-const int MIN_VALUE = 310;
-const int MAX_VALUE = 620;
-const int WET_VALUE = 80;
-const int DRY_VALUE = 40;
+const int WET_VALUE = 74;
+const int DRY_VALUE = 47 ;
 
 // instances 
 DHT sensor_DHT(DHT_PIN, DHT_TYPE);
@@ -52,12 +51,14 @@ void loop() {
 
   // read sensor
   float humidity = sensor_DHT.readHumidity();
-  sensor_DS18B20.requestTemperatures();
-  float temperature = sensor_DS18B20.getTempCByIndex(0);
-  int soilMoistureValue = getSoilMoisture();
   if (isnan(humidity)) {
     Serial.println("failed to read dht sensor");
   }
+  sensor_DS18B20.requestTemperatures();
+  float temperature = sensor_DS18B20.getTempCByIndex(0);
+  int soilMoisture1 = getSoilMoisture(ADC_PIN_1);
+  int soilMoisture2 = getSoilMoisture(ADC_PIN_2);
+  int averageSoilMoisture = round((soilMoisture1 + soilMoisture2) / 2.0);
 
   // DHT22 read result
   Serial.println("Hm=" + String(humidity) + "%");
@@ -72,10 +73,12 @@ void loop() {
   Blynk.virtualWrite(V3, temperature); // virtual pin for temperature
   
   // soil capacitative read result
-  Serial.println("Ms=" + String(soilMoistureValue) + "%");
+  Serial.println("Ms=" + String(averageSoilMoisture) + "%");
   LCD.setCursor(0, 1);
-  LCD.print("Ms=" + String(soilMoistureValue) + "%");  
-  Blynk.virtualWrite(V5, soilMoistureValue); // virtual pin for soil moisture  
+  LCD.print("Ms=" + String(averageSoilMoisture) + "%");  
+  Blynk.virtualWrite(V5, averageSoilMoisture); // virtual pin for average soil moisture
+  Blynk.virtualWrite(V6, soilMoisture1); // virtual pin for soil moisture 1
+  Blynk.virtualWrite(V7, soilMoisture2); // virtual pin for soil moisture 2
   
   // pump indicator
   LCD.setCursor(8, 1);
@@ -85,7 +88,7 @@ void loop() {
 
   // automatic mode logic 
   if (autoMode && !manualPumpMode) {
-    digitalWrite(PUMP_PIN, soilMoistureValue < DRY_VALUE ? LOW : HIGH);
+    digitalWrite(PUMP_PIN, averageSoilMoisture < DRY_VALUE ? LOW : HIGH);
     Blynk.virtualWrite(V2, digitalRead(PUMP_PIN) ? 0 : 1);
   } else if (!autoMode && !manualPumpMode) {
     digitalWrite(PUMP_PIN, HIGH);
@@ -104,16 +107,10 @@ void connectNetwork() {
   Serial.println("connected to network");
 }
 
-int getSoilMoisture() {
-  int soilMoisture = analogRead(ANALOG_PIN);
-  Serial.println(soilMoisture);
-  soilMoisture = map(soilMoisture, MIN_VALUE, MAX_VALUE, 0, 100);
-  if (soilMoisture >= 100) {
-    soilMoisture = 100;
-  } else if (soilMoisture <= 0) {
-    soilMoisture = 0;
-  }
-  return soilMoisture;
+int getSoilMoisture(int ANALOG_PIN) {
+  int analogValue = analogRead(ANALOG_PIN);
+  int mappedValue = 100 - map(analogValue, 0, 4095, 0, 100);
+  return mappedValue;
 }
 
 // virtual pin from blynk
