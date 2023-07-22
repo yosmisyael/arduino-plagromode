@@ -16,4 +16,4 @@ Data from soil moisture sensor readings is used to determine whether plants need
   - Lamp (Optional)
 
 ## description
-This device has two mode, manual and automatic mode. By default, mode is set to manual, which needed to turn on or off the water pump manually through Blynk. In automatic mode, the device will automatically turn the water pump on or off based on soil moisture condition. Automatic mode use average soil moisture value to decide whether soil need to be watered or not. 
+This device has two mode, manual and automatic mode. By default, mode is set to manual, which needed to turn on or off the water pump manually through Blynk. In automatic mode, the device will automatically turn the water pump on or off based on soil moisture condition. Automatic mode use average soil moisture value to decide whether soil need to be watered or not. Those other two sensor, DHT22 and DS18B20 will give insight about environment condition inside plant box. The lamp is used to give light when camera is turned on.
