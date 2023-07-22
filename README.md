@@ -15,4 +15,5 @@ Data from soil moisture sensor readings is used to determine whether plants need
   - Relay module (I use double channel for water pump and lamp)
   - Lamp (Optional)
 
-     
+## description
+This device has two mode, manual and automatic mode. By default, mode is set to manual, which needed to turn on or off the water pump manually through Blynk. In automatic mode, the device will automatically turn the water pump on or off based on soil moisture condition. Automatic mode use average soil moisture value to decide whether soil need to be watered or not. 
