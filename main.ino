@@ -40,6 +40,7 @@ void setup() {
   digitalWrite(LAMP_PIN, HIGH);
   connectNetwork();
   Blynk.begin(BLYNK_AUTH_TOKEN, SSID, PASS);
+  Blynk.virtualWrite(V0, 0);
   LCD.init();
   LCD.backlight();
   sensor_DHT.begin();
