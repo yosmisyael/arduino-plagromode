@@ -1,66 +1,96 @@
-#define BLYNK_TEMPLATE_ID     "TMPL6u-CbO2a6"
-#define BLYNK_TEMPLATE_NAME   "SMEKSAPLOS AUTOMATIC WATERING"
-#define BLYNK_AUTH_TOKEN      "W6xYp4CGgOaI-I829DpHKzLw-AWHg2tx"
+#define BLYNK_TEMPLATE_ID     ""
+#define BLYNK_TEMPLATE_NAME   ""
+#define BLYNK_AUTH_TOKEN      ""
 #define BLYNK_PRINT Serial
 
 #include <WiFi.h>
 #include <BlynkSimpleEsp32.h>
 
-bool autoMode = false;
-bool manualPumpMode = false;
-const char* SSID = "PS1";
-const char* PASS = "@ps1labkom";
+// set the default mode to auto
+bool isAuto = true;
+const char* SSID = "";
+const char* PASS = "";
 const u_int8_t PUMP_PIN = 16;
-const u_int8_t WET_VALUE = 74;
-const u_int8_t DRY_VALUE = 47;
 const u_int8_t BUILTIN_LED = 2;
-hw_timer_t *timer = NULL;
+hw_timer_t *machineTimer = NULL;
+hw_timer_t *relayTimer = NULL;
 
-void getNetworkConnection() {
-  WiFi.begin(SSID, PASS);
-  Serial.print("connecting to network");
+void getNetworkConnection(const char* ssid, const char* pass) {
+  digitalWrite(BUILTIN_LED, LOW);
+  WiFi.begin(ssid, pass);
+  Serial.print("connecting to network " + String(ssid));
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(3000);
   }
-  Serial.println("connected to network");
+  Serial.println("connected to network" + String(WiFi.localIP()));
+  digitalWrite(BUILTIN_LED, HIGH);
 }
 
-void IRAM_ATTR onAlarm(){
+void IRAM_ATTR handlerMachine() {
   digitalWrite(BUILTIN_LED, !digitalRead(BUILTIN_LED));
+  timerStart(relayTimer);
+  timerStop(machineTimer);
+}
+
+void IRAM_ATTR handleRelay() {
+  digitalWrite(BUILTIN_LED, LOW);
+  timerStop(relayTimer);
+  timerStart(machineTimer);
 }
 
 BLYNK_WRITE(V0) {
   int data = param.asInt();
-  if (manualPumpMode) manualPumpMode = false;
-  autoMode = data ? true : false;
-  autoMode == true ? timerStart(timer) : timerStop(timer);
-  digitalWrite(BUILTIN_LED, LOW);
+  if (digitalRead(BUILTIN_LED) == 1) {
+    digitalWrite(BUILTIN_LED, 0);
+  }
+  Blynk.virtualWrite(V1, 0);
+  if (data == 1) {
+    isAuto = true;
+    timerStart(machineTimer);
+  } else {
+    isAuto = false;
+    timerStop(machineTimer);
+    timerStop(relayTimer);
+    if (digitalRead(BUILTIN_LED) == 1) {
+      digitalWrite(BUILTIN_LED, 0);
+    }
+  }
 }
 
 BLYNK_WRITE(V1) {
   int data = param.asInt();
-  manualPumpMode = data ? true : false;
-  if (!autoMode) {
-    digitalWrite(BUILTIN_LED, manualPumpMode ? HIGH : LOW);
+  if (!isAuto) {
+    digitalWrite(BUILTIN_LED, data ? HIGH : LOW);
   }
 }
 
 void setup() {
   Serial.begin(115200);
+  getNetworkConnection(SSID, PASS);
   Blynk.begin(BLYNK_AUTH_TOKEN, SSID, PASS);
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(BUILTIN_LED, OUTPUT);
-  getNetworkConnection();
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onAlarm, true);
-  timerAlarmWrite(timer, 3600*1000000*2, true);
-  timerAlarmEnable(timer);
+  Blynk.virtualWrite(V0, 1);
+  Blynk.virtualWrite(V1, 0);
+
+  // machine timer used to control the device auto mode active period 
+  machineTimer = timerBegin(0, 80, true);
+  timerAttachInterrupt(machineTimer, &handlerMachine, true);
+  timerAlarmWrite(machineTimer, 1000000*3, true);
+  timerAlarmEnable(machineTimer);
+  
+  // relay timer used to control the relay active duration
+  relayTimer = timerBegin(1, 80, true);
+  timerAttachInterrupt(relayTimer, &handleRelay, true);
+  timerAlarmWrite(relayTimer, 1000000*5, true);
+  timerAlarmEnable(relayTimer);
 }
 
 void loop(){
   if(WiFi.status() != WL_CONNECTED){
-    getNetworkConnection();
+    getNetworkConnection(SSID, PASS);
   }
+  isAuto ? Blynk.virtualWrite(0, 1) : Blynk.virtualWrite(0, 0);
   Blynk.run();
 }
